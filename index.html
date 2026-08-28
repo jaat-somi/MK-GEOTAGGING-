@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Security Duty Check-In</title>
+  <title>Platoon Securitas Check-In</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
     body { background-color: #121212; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 15px; }
     h2 { margin-bottom: 10px; font-size: 1.2rem; }
     #video-container { position: relative; width: 100%; max-width: 480px; aspect-ratio: 3/4; background: #000; border-radius: 8px; overflow: hidden; }
     video { width: 100%; height: 100%; object-fit: cover; }
-    #status { margin: 10px 0; font-size: 0.9rem; color: #ffca28; text-align: center; }
+    #status { margin: 10px 0; font-size: 0.9rem; color: #ffca28; text-align: center; font-weight: bold; }
     .btn { width: 100%; max-width: 480px; padding: 14px; margin: 6px 0; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; }
     .btn-capture { background-color: #00c853; color: white; }
     .btn-download { background-color: #2979ff; color: white; display: none; }
@@ -22,13 +22,14 @@
 
   <h2>Live Duty Check-In</h2>
   <div id="video-container">
-    <video id="video" autoplay playsinline></video>
+    <!-- Added 'muted' to fix iOS/Safari blocking issues -->
+    <video id="video" autoplay playsinline muted></video>
   </div>
 
-  <div id="status">Fetching GPS Location...</div>
+  <div id="status">Fetching GPS & Address...</div>
 
   <button class="btn btn-capture" id="captureBtn" onclick="takeSnapshot()">📸 Capture Live Photo</button>
-  <button class="btn btn-download" id="downloadBtn" onclick="downloadImage()">💾 Download / Share Photo</button>
+  <button class="btn btn-download" id="downloadBtn" onclick="downloadImage()">💾 Download & Send</button>
 
   <div id="preview-container">
     <canvas id="canvas"></canvas>
@@ -40,15 +41,15 @@
     const statusText = document.getElementById('status');
     const downloadBtn = document.getElementById('downloadBtn');
     
-    let currentLat = "Acquiring...";
-    let currentLon = "Acquiring...";
+    let currentLat = "0.00";
+    let currentLon = "0.00";
+    let currentAddress = "Locating address...";
     let logoImage = new Image();
     
-    // Updated to pull the logo directly from your GitHub files
     logoImage.crossOrigin = "anonymous";
     logoImage.src = "logo.png"; 
 
-    // 1. Start live camera (rear camera prioritized)
+    // 1. Start live camera
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -57,18 +58,35 @@
         });
         video.srcObject = stream;
       } catch (err) {
-        statusText.innerText = "Error: Camera access denied. Please allow permissions.";
+        statusText.innerText = "Error: Camera access denied. Allow permissions.";
+        alert("Camera permission is required for this app to work.");
       }
     }
 
-    // 2. Track GPS continuously
+    // 2. Track GPS & Fetch Address
     if ("geolocation" in navigator) {
       navigator.geolocation.watchPosition(
-        (pos) => {
-          currentLat = pos.coords.latitude.toFixed(6);
-          currentLon = pos.coords.longitude.toFixed(6);
-          statusText.innerText = `GPS Ready: ${currentLat}, ${currentLon}`;
+        async (pos) => {
+          currentLat = pos.coords.latitude.toFixed(5);
+          currentLon = pos.coords.longitude.toFixed(5);
+          statusText.innerText = "GPS Found. Fetching Address...";
           statusText.style.color = "#00e676";
+
+          try {
+            let response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLat}&lon=${currentLon}&zoom=18&addressdetails=1`);
+            let data = await response.json();
+            
+            if(data && data.address) {
+                let road = data.address.road || data.address.neighbourhood || "";
+                let city = data.address.city || data.address.town || data.address.village || "";
+                currentAddress = `${road}, ${city}`.replace(/^, | ,/g, '').trim();
+                statusText.innerText = `Location Ready: ${currentAddress}`;
+            } else {
+                currentAddress = `Lat: ${currentLat}, Lon: ${currentLon}`;
+            }
+          } catch(e) {
+            currentAddress = `Lat: ${currentLat}, Lon: ${currentLon}`;
+          }
         },
         (err) => {
           statusText.innerText = "GPS Error: Please enable location services.";
@@ -78,50 +96,77 @@
       );
     }
 
-    // 3. Capture snapshot & apply watermark
+    // 3. Capture snapshot (Wrapped in Safety Checks)
     function takeSnapshot() {
-      if (video.videoWidth === 0) return;
+      try {
+        if (video.videoWidth === 0) {
+          alert("Camera stream is loading. Please wait a second and try again.");
+          return;
+        }
 
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
 
-      // Draw the video frame
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Draw video background
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Top Banner styling
-      const bannerHeight = canvas.height * 0.12; 
-      ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
-      ctx.fillRect(0, 0, canvas.width, bannerHeight);
+        // Top Banner styling
+        const bannerHeight = canvas.height * 0.15; 
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillRect(0, 0, canvas.width, bannerHeight);
 
-      // Draw Logo on the top-left
-      const logoWidth = bannerHeight * 1.5;
-      const logoHeight = bannerHeight * 0.75;
-      ctx.drawImage(logoImage, 20, (bannerHeight - logoHeight) / 2, logoWidth, logoHeight);
+        let textX = 20; // Default text position if logo fails
 
-      // Format current Date & Time
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('en-GB'); 
-      const timeStr = now.toLocaleTimeString('en-US', { hour12: false });
+        // Safe Logo Drawing: Will not crash if logo is missing
+        try {
+          if (logoImage.complete && logoImage.naturalWidth > 0) {
+            const logoHeight = bannerHeight * 0.8;
+            const logoWidth = logoHeight * 1.5; 
+            ctx.drawImage(logoImage, 15, (bannerHeight - logoHeight) / 2, logoWidth, logoHeight);
+            textX = logoWidth + 30; // Move text over so it doesn't overlap logo
+          }
+        } catch (logoErr) {
+          console.log("Logo skipped to prevent crash.");
+        }
 
-      // Draw Top-aligned Watermark Text beside Logo
-      ctx.fillStyle = "#ffffff";
-      ctx.font = `bold ${Math.floor(bannerHeight * 0.22)}px Arial`;
-      const textX = logoWidth + 40;
-      
-      ctx.fillText(`LAT: ${currentLat} | LON: ${currentLon}`, textX, bannerHeight * 0.40);
-      ctx.fillText(`DATE: ${dateStr} | TIME: ${timeStr}`, textX, bannerHeight * 0.75);
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-GB'); 
+        const timeStr = now.toLocaleTimeString('en-US');
 
-      // Show canvas preview & download button
-      document.getElementById('preview-container').style.display = 'block';
-      downloadBtn.style.display = 'block';
-      statusText.innerText = "Photo captured successfully!";
+        // Draw Text
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "left";
+        
+        // Address Line
+        ctx.font = `bold ${Math.floor(bannerHeight * 0.22)}px Arial`;
+        ctx.fillStyle = "#00e676"; 
+        ctx.fillText(currentAddress, textX, bannerHeight * 0.35);
+
+        // Time & Date Line
+        ctx.font = `bold ${Math.floor(bannerHeight * 0.25)}px Arial`;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(`${dateStr}  |  ${timeStr}`, textX, bannerHeight * 0.70);
+
+        // Coordinates Line
+        ctx.font = `normal ${Math.floor(bannerHeight * 0.18)}px Arial`;
+        ctx.fillStyle = "#cccccc";
+        ctx.fillText(`GPS: ${currentLat}, ${currentLon}`, textX, bannerHeight * 0.90);
+
+        // Display results
+        document.getElementById('preview-container').style.display = 'block';
+        downloadBtn.style.display = 'block';
+        statusText.innerText = "Photo captured successfully!";
+        
+      } catch (err) {
+        alert("Error taking photo: " + err.message + ". Please refresh the page.");
+      }
     }
 
-    // 4. Trigger download
+    // 4. Download image
     function downloadImage() {
       const link = document.createElement('a');
-      link.download = `Duty_CheckIn_${Date.now()}.jpg`;
+      link.download = `Platoon_Duty_${Date.now()}.jpg`;
       link.href = canvas.toDataURL('image/jpeg', 0.9);
       link.click();
     }
