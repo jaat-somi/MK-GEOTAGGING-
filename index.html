@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Duty Check-In</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+    body { background-color: #121212; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 15px; }
+    h2 { margin-bottom: 10px; font-size: 1.2rem; }
+    #video-container { position: relative; width: 100%; max-width: 480px; aspect-ratio: 3/4; background: #000; border-radius: 8px; overflow: hidden; }
+    video { width: 100%; height: 100%; object-fit: cover; }
+    #status { margin: 10px 0; font-size: 0.9rem; color: #ffca28; text-align: center; }
+    .btn { width: 100%; max-width: 480px; padding: 14px; margin: 6px 0; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+    .btn-capture { background-color: #00c853; color: white; }
+    .btn-download { background-color: #2979ff; color: white; display: none; }
+    #preview-container { width: 100%; max-width: 480px; margin-top: 15px; display: none; }
+    canvas { width: 100%; border-radius: 8px; }
+  </style>
+</head>
+<body>
+
+  <h2>Live Duty Check-In</h2>
+  <div id="video-container">
+    <video id="video" autoplay playsinline></video>
+  </div>
+
+  <div id="status">Fetching GPS Location...</div>
+
+  <button class="btn btn-capture" id="captureBtn" onclick="takeSnapshot()">📸 Capture Live Photo</button>
+  <button class="btn btn-download" id="downloadBtn" onclick="downloadImage()">💾 Download / Share Photo</button>
+
+  <div id="preview-container">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const statusText = document.getElementById('status');
+    const downloadBtn = document.getElementById('downloadBtn');
+    
+    let currentLat = "Acquiring...";
+    let currentLon = "Acquiring...";
+    let logoImage = new Image();
+    
+    // Updated to pull the logo directly from your GitHub files
+    logoImage.crossOrigin = "anonymous";
+    logoImage.src = "logo.png"; 
+
+    // 1. Start live camera (rear camera prioritized)
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false
+        });
+        video.srcObject = stream;
+      } catch (err) {
+        statusText.innerText = "Error: Camera access denied. Please allow permissions.";
+      }
+    }
+
+    // 2. Track GPS continuously
+    if ("geolocation" in navigator) {
+      navigator.geolocation.watchPosition(
+        (pos) => {
+          currentLat = pos.coords.latitude.toFixed(6);
+          currentLon = pos.coords.longitude.toFixed(6);
+          statusText.innerText = `GPS Ready: ${currentLat}, ${currentLon}`;
+          statusText.style.color = "#00e676";
+        },
+        (err) => {
+          statusText.innerText = "GPS Error: Please enable location services.";
+          statusText.style.color = "#ff5252";
+        },
+        { enableHighAccuracy: true }
+      );
+    }
+
+    // 3. Capture snapshot & apply watermark
+    function takeSnapshot() {
+      if (video.videoWidth === 0) return;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+
+      // Draw the video frame
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Top Banner styling
+      const bannerHeight = canvas.height * 0.12; 
+      ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+      ctx.fillRect(0, 0, canvas.width, bannerHeight);
+
+      // Draw Logo on the top-left
+      const logoWidth = bannerHeight * 1.5;
+      const logoHeight = bannerHeight * 0.75;
+      ctx.drawImage(logoImage, 20, (bannerHeight - logoHeight) / 2, logoWidth, logoHeight);
+
+      // Format current Date & Time
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-GB'); 
+      const timeStr = now.toLocaleTimeString('en-US', { hour12: false });
+
+      // Draw Top-aligned Watermark Text beside Logo
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `bold ${Math.floor(bannerHeight * 0.22)}px Arial`;
+      const textX = logoWidth + 40;
+      
+      ctx.fillText(`LAT: ${currentLat} | LON: ${currentLon}`, textX, bannerHeight * 0.40);
+      ctx.fillText(`DATE: ${dateStr} | TIME: ${timeStr}`, textX, bannerHeight * 0.75);
+
+      // Show canvas preview & download button
+      document.getElementById('preview-container').style.display = 'block';
+      downloadBtn.style.display = 'block';
+      statusText.innerText = "Photo captured successfully!";
+    }
+
+    // 4. Trigger download
+    function downloadImage() {
+      const link = document.createElement('a');
+      link.download = `Duty_CheckIn_${Date.now()}.jpg`;
+      link.href = canvas.toDataURL('image/jpeg', 0.9);
+      link.click();
+    }
+
+    startCamera();
+  </script>
+</body>
+</html>
