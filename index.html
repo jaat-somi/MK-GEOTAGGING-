@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Platoon Securitas Digital Patrol</title>
+  <title>Zapp App Patrol</title>
   <link rel="manifest" href="manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -49,7 +49,7 @@
 <body>
 
   <header>
-    <h1>🛡️ Platoon Digital Patrol</h1>
+    <h1>🛡️ Zapp App</h1>
     <div id="live-clock">00:00:00</div>
   </header>
 
@@ -134,14 +134,29 @@
           try {
             let response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLat}&lon=${currentLon}&zoom=18&addressdetails=1`);
             let data = await response.json();
+            
             if(data && data.address) {
-                let road = data.address.road || data.address.neighbourhood || "Khanak Mines Area";
-                let city = data.address.city || data.address.town || data.address.state || "Haryana";
-                currentAddress = `${road}, ${city}`;
+                // Dynamically fetch available address parts instead of hardcoding
+                let local = data.address.amenity || data.address.road || data.address.neighbourhood || data.address.suburb || "";
+                let city = data.address.city || data.address.town || data.address.village || data.address.county || "";
+                let state = data.address.state || "";
+                
+                // Filter out empty parts and join them smoothly
+                let addressParts = [local, city, state].filter(part => part !== "");
+                
+                if (addressParts.length > 0) {
+                    currentAddress = addressParts.join(", ");
+                } else if (data.display_name) {
+                    // Fallback to the raw display name if specific parts fail
+                    currentAddress = data.display_name.split(",").slice(0, 2).join(", ");
+                } else {
+                    currentAddress = `Lat: ${currentLat}, Lon: ${currentLon}`;
+                }
+                
                 statusText.innerHTML = `🟢 <b>Secured:</b> ${currentAddress}`;
             }
           } catch(e) {
-            currentAddress = `Coordinates: ${currentLat}, ${currentLon}`;
+            currentAddress = `Lat: ${currentLat}, Lon: ${currentLon}`;
           }
         },
         (err) => {
@@ -155,7 +170,6 @@
       try {
         if (video.videoWidth === 0) return;
         
-        // Hide video, show canvas
         document.getElementById('video-container').style.display = 'none';
         document.getElementById('preview-container').style.display = 'block';
 
@@ -222,7 +236,7 @@
         textY += spacing;
         ctx.font = `normal ${baseFont}px Arial`;
         ctx.fillStyle = "#cbd5e1";
-        ctx.fillText(currentAddress.substring(0, 40) + (currentAddress.length > 40 ? "..." : ""), textX, textY);
+        ctx.fillText(currentAddress.substring(0, 42) + (currentAddress.length > 42 ? "..." : ""), textX, textY);
 
         textY += spacing;
         const now = new Date();
@@ -255,7 +269,6 @@
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({ files: [file], title: 'Duty Patrol Check-In' });
-            // Reset after share
             document.getElementById('preview-container').style.display = 'none';
             document.getElementById('video-container').style.display = 'block';
             downloadBtn.style.display = 'none';
