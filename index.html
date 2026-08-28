@@ -2,42 +2,77 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Platoon Securitas Pro Check-In</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Zapp App Patrol</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="logo.png">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
-    body { background-color: #0f172a; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 10px; }
-    h2 { margin-bottom: 10px; font-size: 1.2rem; color: #e2e8f0; }
-    #video-container { position: relative; width: 100%; max-width: 480px; aspect-ratio: 3/4; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    :root { --bg: #0f172a; --panel: rgba(30, 41, 59, 0.8); --primary: #3b82f6; --success: #10b981; --text: #f8fafc; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; user-select: none; }
+    body { background-color: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    
+    /* Top Bar */
+    header { background: var(--panel); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); z-index: 10; }
+    header h1 { font-size: 1.1rem; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+    #live-clock { font-size: 0.9rem; color: #94a3b8; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* Main Content */
+    main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 15px; overflow-y: auto; padding-bottom: 100px; }
+    
+    /* Video Container */
+    #video-container { position: relative; width: 100%; max-width: 480px; aspect-ratio: 3/4; background: #000; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.05); }
     video { width: 100%; height: 100%; object-fit: cover; }
-    #status { margin: 12px 0; font-size: 0.95rem; color: #fbbf24; text-align: center; font-weight: bold; }
-    .btn { width: 100%; max-width: 480px; padding: 15px; margin: 6px 0; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
-    .btn-switch { background-color: #64748b; color: white; box-shadow: 0 4px 0 #475569; transition: 0.1s; margin-bottom: 10px; }
-    .btn-switch:active { transform: translateY(4px); box-shadow: none; }
-    .btn-capture { background-color: #10b981; color: white; box-shadow: 0 4px 0 #059669; transition: 0.1s; }
-    .btn-capture:active { transform: translateY(4px); box-shadow: none; }
-    .btn-download { background-color: #3b82f6; color: white; display: none; box-shadow: 0 4px 0 #2563eb; }
+    
+    /* Status Panel */
+    .status-panel { width: 100%; max-width: 480px; background: var(--panel); margin-top: 15px; padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(5px); }
+    #status { font-size: 0.9rem; color: #fbbf24; text-align: left; font-weight: 600; line-height: 1.4; display: flex; align-items: center; gap: 8px; }
+    
+    /* Bottom Action Bar */
+    .action-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--panel); padding: 15px 20px 25px 20px; border-top: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 10px; align-items: center; z-index: 10; }
+    
+    /* Buttons */
+    .btn { width: 100%; max-width: 480px; padding: 16px; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.2s ease; display: flex; justify-content: center; align-items: center; gap: 8px; }
+    .btn:active { transform: scale(0.97); }
+    
+    .btn-row { display: flex; gap: 10px; width: 100%; max-width: 480px; }
+    .btn-switch { background-color: #334155; color: white; flex: 1; }
+    .btn-capture { background-color: var(--success); color: white; flex: 2; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); }
+    .btn-download { background-color: var(--primary); color: white; display: none; margin-top: 5px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); }
+
+    /* Hidden Elements */
     #preview-container { width: 100%; max-width: 480px; margin-top: 15px; display: none; }
-    canvas { width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+    canvas { width: 100%; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
   </style>
 </head>
 <body>
 
-  <h2>Platoon Digital Patrol </h2>
-  <div id="video-container">
-    <video id="video" autoplay playsinline muted></video>
-  </div>
+  <header>
+    <h1>🛡️ Zapp App</h1>
+    <div id="live-clock">00:00:00</div>
+  </header>
 
-  <div id="status">📡 Locking GPS Coordinates...</div>
+  <main>
+    <div id="video-container">
+      <video id="video" autoplay playsinline muted></video>
+    </div>
 
-  <!-- New Switch Camera Button -->
-  <button class="btn btn-switch" id="switchBtn" onclick="toggleCamera()">🔄 Switch Camera (Front/Rear)</button>
-  
-  <button class="btn btn-capture" id="captureBtn" onclick="takeSnapshot()">📸 Capture Secure Photo</button>
-  <button class="btn btn-download" id="downloadBtn" onclick="downloadImage()">💾 Save & Share to WhatsApp</button>
+    <div class="status-panel">
+      <div id="status">⏳ Initializing Secure Connection...</div>
+    </div>
 
-  <div id="preview-container">
-    <canvas id="canvas"></canvas>
+    <div id="preview-container">
+      <canvas id="canvas"></canvas>
+    </div>
+  </main>
+
+  <div class="action-bar">
+    <div class="btn-row">
+      <button class="btn btn-switch" id="switchBtn" onclick="toggleCamera()">🔄 Flip</button>
+      <button class="btn btn-capture" id="captureBtn" onclick="takeSnapshot()">📸 Capture</button>
+    </div>
+    <button class="btn btn-download" id="downloadBtn" onclick="shareImage()">🚀 Share to WhatsApp</button>
   </div>
 
   <script>
@@ -48,14 +83,20 @@
     
     let currentLat = "0.00000";
     let currentLon = "0.00000";
-    let currentAddress = "Fetching precise location...";
+    let currentAddress = "Locating...";
     let logoImage = new Image();
     
     logoImage.crossOrigin = "anonymous";
     logoImage.src = "logo.png"; 
 
-    let currentFacingMode = "environment"; // Starts with the back/rear camera
+    let currentFacingMode = "environment"; 
     let currentStream = null;
+
+    // Run Live Clock
+    setInterval(() => {
+      const now = new Date();
+      document.getElementById('live-clock').innerText = now.toLocaleTimeString('en-US', { hour12: false });
+    }, 1000);
 
     function drawRoundRect(ctx, x, y, width, height, radius) {
       ctx.beginPath();
@@ -68,23 +109,16 @@
     }
 
     async function startCamera() {
-      // Stop the existing camera stream before switching
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-      }
+      if (currentStream) currentStream.getTracks().forEach(track => track.stop());
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: currentFacingMode } }, audio: false
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: currentFacingMode } }, audio: false });
         currentStream = stream;
         video.srcObject = stream;
       } catch (err) {
-        statusText.innerText = "❌ Camera access denied.";
-        alert("Please allow camera access in your browser settings.");
+        statusText.innerHTML = "❌ <b>Camera Blocked.</b> Please check browser permissions.";
       }
     }
 
-    // Function to flip between front (selfie) and rear cameras
     function toggleCamera() {
       currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
       startCamera();
@@ -95,8 +129,7 @@
         async (pos) => {
           currentLat = pos.coords.latitude.toFixed(5);
           currentLon = pos.coords.longitude.toFixed(5);
-          statusText.innerText = "📍 GPS Locked. Finding Address...";
-          statusText.style.color = "#34d399";
+          statusText.innerHTML = "📡 <b>GPS Locked.</b> Fetching Address...";
 
           try {
             let response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLat}&lon=${currentLon}&zoom=18&addressdetails=1`);
@@ -105,15 +138,14 @@
                 let road = data.address.road || data.address.neighbourhood || "Khanak Mines Area";
                 let city = data.address.city || data.address.town || data.address.state || "Haryana";
                 currentAddress = `${road}, ${city}`;
-                statusText.innerText = `🟢 Ready: ${currentAddress}`;
+                statusText.innerHTML = `🟢 <b>Secured:</b> ${currentAddress}`;
             }
           } catch(e) {
             currentAddress = `Coordinates: ${currentLat}, ${currentLon}`;
           }
         },
         (err) => {
-          statusText.innerText = "⚠️ GPS Error. Turn on Location.";
-          statusText.style.color = "#f87171";
+          statusText.innerHTML = "⚠️ <b>GPS Error.</b> Turn on device Location Services.";
         },
         { enableHighAccuracy: true }
       );
@@ -121,10 +153,11 @@
 
     function takeSnapshot() {
       try {
-        if (video.videoWidth === 0) {
-          alert("Camera warming up, try again in a second.");
-          return;
-        }
+        if (video.videoWidth === 0) return;
+        
+        // Hide video, show canvas
+        document.getElementById('video-container').style.display = 'none';
+        document.getElementById('preview-container').style.display = 'block';
 
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -132,10 +165,8 @@
         const cw = canvas.width;
         const ch = canvas.height;
 
-        // 1. Draw Video
         ctx.drawImage(video, 0, 0, cw, ch);
 
-        // 2. Draw Top Logo (Floating)
         try {
           if (logoImage.complete && logoImage.naturalWidth > 0) {
             const logoWidth = cw * 0.20; 
@@ -144,7 +175,6 @@
           }
         } catch (e) { console.log("Logo skip"); }
 
-        // 3. Draw Pro Bottom Dashboard
         const pad = cw * 0.03;
         const dashHeight = ch * 0.20; 
         const dashY = ch - dashHeight - pad;
@@ -157,7 +187,6 @@
         ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
         ctx.stroke();
 
-        // 4. Left Side Panel
         const leftPanelWidth = dashWidth * 0.25;
         const badgeHeight = dashHeight * 0.28;
         
@@ -178,27 +207,23 @@
         ctx.font = `bold ${cw * 0.02}px Arial`;
         ctx.fillText("SECURE", pad + 10 + (leftPanelWidth/2), dashY + 10 + badgeHeight + (dashHeight*0.48));
 
-        // 5. Right Side Text Data (Yellow Note Completely Removed)
         const textX = pad + 10 + leftPanelWidth + 15;
-        let textY = dashY + 30; // Shifted down slightly to balance the empty space
+        let textY = dashY + 30; 
         const baseFont = cw * 0.026;
         const spacing = baseFont * 1.8; 
 
         ctx.textAlign = "left";
         ctx.textBaseline = "alphabetic";
 
-        // Title
         ctx.fillStyle = "#ffffff";
         ctx.font = `bold ${cw * 0.035}px Arial`;
         ctx.fillText("Platoon Securitas", textX, textY);
 
-        // Address
         textY += spacing;
         ctx.font = `normal ${baseFont}px Arial`;
         ctx.fillStyle = "#cbd5e1";
         ctx.fillText(currentAddress.substring(0, 40) + (currentAddress.length > 40 ? "..." : ""), textX, textY);
 
-        // Date & Time
         textY += spacing;
         const now = new Date();
         const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
@@ -207,34 +232,47 @@
         ctx.fillStyle = "#ffffff";
         ctx.fillText(`${dateStr} - ${timeStr} IST`, textX, textY);
 
-        // Lat/Lon
         textY += spacing;
         ctx.font = `normal ${cw * 0.022}px Arial`;
         ctx.fillStyle = "#f8fafc";
         ctx.fillText(`${currentLat}° N   ${currentLon}° E`, textX, textY);
 
-        // Bottom Stats
         textY += spacing * 1.2;
         ctx.fillStyle = "#93c5fd";
         ctx.fillText(`🎯 Acc: ±5m   🛡️ Verified   🔋 System Active`, textX, textY);
 
-        document.getElementById('preview-container').style.display = 'block';
-        downloadBtn.style.display = 'block';
-        statusText.innerText = "✅ Image Generated Successfully!";
+        downloadBtn.style.display = 'flex';
+        statusText.innerHTML = "✅ <b>Success:</b> Image verified and ready.";
         
       } catch (err) {
-        alert("Error: " + err.message);
+        statusText.innerHTML = "❌ <b>Capture Error.</b> Please refresh.";
       }
     }
 
-    function downloadImage() {
+    async function shareImage() {
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], `Platoon_CheckIn_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: 'Duty Patrol Check-In' });
+            // Reset after share
+            document.getElementById('preview-container').style.display = 'none';
+            document.getElementById('video-container').style.display = 'block';
+            downloadBtn.style.display = 'none';
+            statusText.innerHTML = `🟢 <b>Secured:</b> ${currentAddress}`;
+          } catch (error) { fallbackDownload(); }
+        } else { fallbackDownload(); }
+      }, 'image/jpeg', 0.95);
+    }
+
+    function fallbackDownload() {
       const link = document.createElement('a');
       link.download = `Platoon_CheckIn_${Date.now()}.jpg`;
       link.href = canvas.toDataURL('image/jpeg', 0.95);
       link.click();
+      statusText.innerHTML = "✅ <b>Saved to gallery!</b> Send to WhatsApp manually.";
     }
 
-    // Start with the default camera
     startCamera();
   </script>
 </body>
