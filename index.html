@@ -12,6 +12,8 @@
     video { width: 100%; height: 100%; object-fit: cover; }
     #status { margin: 12px 0; font-size: 0.95rem; color: #fbbf24; text-align: center; font-weight: bold; }
     .btn { width: 100%; max-width: 480px; padding: 15px; margin: 6px 0; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
+    .btn-switch { background-color: #64748b; color: white; box-shadow: 0 4px 0 #475569; transition: 0.1s; margin-bottom: 10px; }
+    .btn-switch:active { transform: translateY(4px); box-shadow: none; }
     .btn-capture { background-color: #10b981; color: white; box-shadow: 0 4px 0 #059669; transition: 0.1s; }
     .btn-capture:active { transform: translateY(4px); box-shadow: none; }
     .btn-download { background-color: #3b82f6; color: white; display: none; box-shadow: 0 4px 0 #2563eb; }
@@ -28,6 +30,9 @@
 
   <div id="status">📡 Locking GPS Coordinates...</div>
 
+  <!-- New Switch Camera Button -->
+  <button class="btn btn-switch" id="switchBtn" onclick="toggleCamera()">🔄 Switch Camera (Front/Rear)</button>
+  
   <button class="btn btn-capture" id="captureBtn" onclick="takeSnapshot()">📸 Capture Secure Photo</button>
   <button class="btn btn-download" id="downloadBtn" onclick="downloadImage()">💾 Save & Share to WhatsApp</button>
 
@@ -49,7 +54,9 @@
     logoImage.crossOrigin = "anonymous";
     logoImage.src = "logo.png"; 
 
-    // Helper: Draw Rounded Rectangles for older Android phones
+    let currentFacingMode = "environment"; // Starts with the back/rear camera
+    let currentStream = null;
+
     function drawRoundRect(ctx, x, y, width, height, radius) {
       ctx.beginPath();
       ctx.moveTo(x + radius, y);
@@ -61,15 +68,26 @@
     }
 
     async function startCamera() {
+      // Stop the existing camera stream before switching
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } }, audio: false
+          video: { facingMode: { ideal: currentFacingMode } }, audio: false
         });
+        currentStream = stream;
         video.srcObject = stream;
       } catch (err) {
         statusText.innerText = "❌ Camera access denied.";
         alert("Please allow camera access in your browser settings.");
       }
+    }
+
+    // Function to flip between front (selfie) and rear cameras
+    function toggleCamera() {
+      currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+      startCamera();
     }
 
     if ("geolocation" in navigator) {
@@ -120,31 +138,30 @@
         // 2. Draw Top Logo (Floating)
         try {
           if (logoImage.complete && logoImage.naturalWidth > 0) {
-            const logoWidth = cw * 0.20; // 20% of screen width
+            const logoWidth = cw * 0.20; 
             const logoHeight = logoWidth * (logoImage.naturalHeight / logoImage.naturalWidth);
             ctx.drawImage(logoImage, cw * 0.04, ch * 0.02, logoWidth, logoHeight);
           }
         } catch (e) { console.log("Logo skip"); }
 
-        // 3. Draw Pro Bottom Dashboard (Mimicking Reference Image)
+        // 3. Draw Pro Bottom Dashboard
         const pad = cw * 0.03;
-        const dashHeight = ch * 0.22; 
+        const dashHeight = ch * 0.20; 
         const dashY = ch - dashHeight - pad;
         const dashWidth = cw - (pad * 2);
 
-        // Dark translucent background with border
-        ctx.fillStyle = "rgba(15, 23, 42, 0.85)"; // Deep dark blue/black
+        ctx.fillStyle = "rgba(15, 23, 42, 0.85)"; 
         drawRoundRect(ctx, pad, dashY, dashWidth, dashHeight, 12);
         ctx.fill();
         ctx.lineWidth = 2;
         ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
         ctx.stroke();
 
-        // 4. Left Side Panel (Blue Badge & Icon)
+        // 4. Left Side Panel
         const leftPanelWidth = dashWidth * 0.25;
-        const badgeHeight = dashHeight * 0.25;
+        const badgeHeight = dashHeight * 0.28;
         
-        ctx.fillStyle = "#3b82f6"; // Bright Blue
+        ctx.fillStyle = "#3b82f6"; 
         drawRoundRect(ctx, pad + 10, dashY + 10, leftPanelWidth, badgeHeight, 6);
         ctx.fill();
 
@@ -154,24 +171,23 @@
         ctx.textBaseline = "middle";
         ctx.fillText("Duty Patrol", pad + 10 + (leftPanelWidth/2), dashY + 10 + (badgeHeight/2));
 
-        // GPS Icon Graphic
         ctx.font = `${cw * 0.08}px Arial`;
         ctx.fillText("📍", pad + 10 + (leftPanelWidth/2), dashY + 10 + badgeHeight + (dashHeight*0.25));
         
-        ctx.fillStyle = "#10b981"; // Green text
+        ctx.fillStyle = "#10b981"; 
         ctx.font = `bold ${cw * 0.02}px Arial`;
-        ctx.fillText("SECURE", pad + 10 + (leftPanelWidth/2), dashY + 10 + badgeHeight + (dashHeight*0.45));
+        ctx.fillText("SECURE", pad + 10 + (leftPanelWidth/2), dashY + 10 + badgeHeight + (dashHeight*0.48));
 
-        // 5. Right Side Text Data
+        // 5. Right Side Text Data (Yellow Note Completely Removed)
         const textX = pad + 10 + leftPanelWidth + 15;
-        let textY = dashY + 25;
+        let textY = dashY + 30; // Shifted down slightly to balance the empty space
         const baseFont = cw * 0.026;
-        const spacing = baseFont * 1.6;
+        const spacing = baseFont * 1.8; 
 
         ctx.textAlign = "left";
         ctx.textBaseline = "alphabetic";
 
-        // Main Title
+        // Title
         ctx.fillStyle = "#ffffff";
         ctx.font = `bold ${cw * 0.035}px Arial`;
         ctx.fillText("Platoon Securitas", textX, textY);
@@ -191,19 +207,13 @@
         ctx.fillStyle = "#ffffff";
         ctx.fillText(`${dateStr} - ${timeStr} IST`, textX, textY);
 
-        // Note Section
-        textY += spacing;
-        ctx.font = `bold ${baseFont}px Arial`;
-        ctx.fillStyle = "#fbbf24"; // Yellow
-        ctx.fillText("Note: Male/Female Ward Night Patrol", textX, textY);
-
         // Lat/Lon
         textY += spacing;
         ctx.font = `normal ${cw * 0.022}px Arial`;
         ctx.fillStyle = "#f8fafc";
         ctx.fillText(`${currentLat}° N   ${currentLon}° E`, textX, textY);
 
-        // Bottom Stats Row (Icons)
+        // Bottom Stats
         textY += spacing * 1.2;
         ctx.fillStyle = "#93c5fd";
         ctx.fillText(`🎯 Acc: ±5m   🛡️ Verified   🔋 System Active`, textX, textY);
@@ -224,6 +234,7 @@
       link.click();
     }
 
+    // Start with the default camera
     startCamera();
   </script>
 </body>
